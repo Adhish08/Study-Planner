@@ -1,0 +1,1129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>ANU Study Planner — AI Workload Manager</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600&family=DM+Mono&display=swap" rel="stylesheet" />
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #F5F2EC;
+    --surface: #FDFCF9;
+    --surface2: #F0EDE6;
+    --border: #D8D3C8;
+    --border2: #C5BFB2;
+    --text: #1A1814;
+    --text2: #5A564F;
+    --text3: #8A8680;
+    --accent: #2D5016;
+    --accent-light: #EBF2E3;
+    --accent-mid: #3D6B1F;
+    --warn: #7A3B10;
+    --warn-light: #FDF0E7;
+    --info: #1A3A5C;
+    --info-light: #E8EFF8;
+    --danger: #7A1A1A;
+    --danger-light: #FAE8E8;
+    --gold: #8B6914;
+    --gold-light: #FDF4DC;
+    --radius: 10px;
+    --radius-lg: 16px;
+    --shadow: 0 1px 3px rgba(0,0,0,0.07), 0 4px 12px rgba(0,0,0,0.04);
+    --shadow-lg: 0 4px 16px rgba(0,0,0,0.1), 0 1px 4px rgba(0,0,0,0.06);
+    --font-display: 'DM Serif Display', Georgia, serif;
+    --font-body: 'DM Sans', system-ui, sans-serif;
+    --font-mono: 'DM Mono', monospace;
+  }
+
+  html { font-size: 15px; }
+  body {
+    font-family: var(--font-body);
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    line-height: 1.6;
+  }
+
+  /* ── LAYOUT ── */
+  .app { display: grid; grid-template-rows: auto 1fr; min-height: 100vh; }
+
+  /* ── HEADER ── */
+  header {
+    background: var(--accent);
+    color: white;
+    padding: 0 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 56px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .header-brand { display: flex; align-items: center; gap: 10px; }
+  .header-logo {
+    width: 28px; height: 28px;
+    background: rgba(255,255,255,0.2);
+    border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px;
+  }
+  .header-name { font-family: var(--font-display); font-size: 17px; letter-spacing: -0.01em; }
+  .header-tag {
+    background: rgba(255,255,255,0.15);
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 20px;
+    letter-spacing: 0.03em;
+  }
+  .header-actions { display: flex; gap: 8px; align-items: center; }
+  .btn-ghost {
+    background: transparent;
+    border: 1px solid rgba(255,255,255,0.3);
+    color: white;
+    padding: 5px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    cursor: pointer;
+    font-family: var(--font-body);
+    transition: background 0.15s;
+  }
+  .btn-ghost:hover { background: rgba(255,255,255,0.1); }
+
+  /* ── MAIN GRID ── */
+  .main {
+    display: grid;
+    grid-template-columns: 360px 1fr;
+    gap: 0;
+    min-height: calc(100vh - 56px);
+  }
+
+  /* ── SIDEBAR ── */
+  .sidebar {
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    overflow-y: auto;
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+  }
+
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+  }
+  .panel-header {
+    padding: 0.85rem 1rem;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--surface2);
+  }
+  .panel-title {
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text2);
+  }
+  .panel-body { padding: 1rem; }
+
+  /* ── FORM ELEMENTS ── */
+  label { font-size: 12px; font-weight: 500; color: var(--text2); display: block; margin-bottom: 5px; }
+  input, select, textarea {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 8px 10px;
+    font-family: var(--font-body);
+    font-size: 13px;
+    color: var(--text);
+    transition: border-color 0.15s, box-shadow 0.15s;
+    outline: none;
+  }
+  input:focus, select:focus, textarea:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(45,80,22,0.08);
+  }
+  textarea { resize: vertical; min-height: 72px; }
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .form-group { margin-bottom: 10px; }
+
+  /* ── TASK CARD ── */
+  .task-list { display: flex; flex-direction: column; gap: 7px; }
+  .task-card {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 10px 12px;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 6px;
+    cursor: pointer;
+    transition: border-color 0.15s, box-shadow 0.15s;
+    position: relative;
+  }
+  .task-card:hover { border-color: var(--border2); box-shadow: var(--shadow); }
+  .task-card.selected { border-color: var(--accent); background: var(--accent-light); }
+  .task-name { font-size: 13px; font-weight: 500; }
+  .task-meta { font-size: 11px; color: var(--text3); display: flex; gap: 8px; margin-top: 2px; }
+  .task-badge {
+    font-size: 10px;
+    padding: 1px 7px;
+    border-radius: 20px;
+    font-weight: 600;
+    align-self: start;
+    white-space: nowrap;
+  }
+  .badge-high { background: var(--danger-light); color: var(--danger); }
+  .badge-med { background: var(--warn-light); color: var(--warn); }
+  .badge-low { background: var(--gold-light); color: var(--gold); }
+  .task-del {
+    position: absolute; right: 6px; top: 6px;
+    background: none; border: none; color: var(--text3);
+    cursor: pointer; font-size: 14px; padding: 0 2px;
+    opacity: 0; transition: opacity 0.15s;
+    line-height: 1;
+  }
+  .task-card:hover .task-del { opacity: 1; }
+
+  /* ── AVAILABILITY ── */
+  .day-row {
+    display: grid;
+    grid-template-columns: 80px 1fr 48px;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 7px;
+  }
+  .day-label { font-size: 12px; color: var(--text2); }
+  .hours-val { font-size: 12px; font-weight: 600; text-align: center; color: var(--accent); }
+  input[type="range"] {
+    -webkit-appearance: none;
+    height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+    padding: 0;
+    border: none;
+    box-shadow: none;
+  }
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    background: var(--accent);
+    cursor: pointer;
+    border: 2px solid white;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+  }
+  input[type="range"]:focus { box-shadow: none; border: none; }
+
+  /* ── BUTTONS ── */
+  .btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 10px 18px;
+    border-radius: var(--radius);
+    font-family: var(--font-body);
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    border: none;
+    transition: all 0.15s;
+    text-decoration: none;
+  }
+  .btn-primary {
+    background: var(--accent);
+    color: white;
+    width: 100%;
+    justify-content: center;
+    padding: 12px;
+    font-size: 14px;
+  }
+  .btn-primary:hover:not(:disabled) { background: var(--accent-mid); }
+  .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn-outline {
+    background: transparent;
+    border: 1px solid var(--border2);
+    color: var(--text2);
+    font-size: 12px;
+    padding: 6px 12px;
+  }
+  .btn-outline:hover { background: var(--surface2); color: var(--text); }
+  .btn-add {
+    background: var(--accent-light);
+    color: var(--accent);
+    border: 1px dashed var(--accent);
+    width: 100%;
+    justify-content: center;
+    font-size: 12px;
+    padding: 8px;
+  }
+  .btn-add:hover { background: var(--accent); color: white; }
+
+  /* ── OUTPUT AREA ── */
+  .output {
+    padding: 2rem;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+
+  /* ── HERO STATE ── */
+  .hero-state {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    gap: 1rem;
+    padding: 3rem;
+    color: var(--text3);
+  }
+  .hero-icon {
+    width: 64px; height: 64px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 28px;
+  }
+  .hero-title { font-family: var(--font-display); font-size: 22px; color: var(--text); }
+  .hero-sub { font-size: 14px; max-width: 340px; line-height: 1.7; }
+
+  /* ── LOADING ── */
+  .loading-state {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    color: var(--text2);
+  }
+  .spinner {
+    width: 40px; height: 40px;
+    border: 3px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .loading-label { font-size: 14px; }
+  .loading-dots::after {
+    content: '';
+    animation: dots 1.5s steps(4, end) infinite;
+  }
+  @keyframes dots {
+    0%   { content: ''; }
+    25%  { content: '.'; }
+    50%  { content: '..'; }
+    75%  { content: '...'; }
+    100% { content: ''; }
+  }
+
+  /* ── PLAN OUTPUT ── */
+  .plan-header {
+    background: var(--accent);
+    color: white;
+    border-radius: var(--radius-lg);
+    padding: 1.5rem;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 1rem;
+    align-items: start;
+  }
+  .plan-title-row { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+  .plan-main-title { font-family: var(--font-display); font-size: 22px; }
+  .plan-sub { font-size: 13px; opacity: 0.8; line-height: 1.6; }
+  .plan-stats { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 8px; }
+  .plan-stat {
+    background: rgba(255,255,255,0.15);
+    border-radius: 6px;
+    padding: 4px 10px;
+    font-size: 12px;
+  }
+  .plan-actions { display: flex; flex-direction: column; gap: 8px; align-items: flex-end; }
+
+  .section-title {
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--text2);
+    margin-bottom: 0.75rem;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .section-title::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  /* ── PRIORITY GRID ── */
+  .priority-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 10px; }
+  .priority-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 0.9rem 1rem;
+    border-left: 3px solid transparent;
+  }
+  .priority-card.p-critical { border-left-color: var(--danger); }
+  .priority-card.p-high { border-left-color: var(--warn); }
+  .priority-card.p-medium { border-left-color: var(--gold); }
+  .priority-card.p-low { border-left-color: var(--accent); }
+  .pc-name { font-size: 13px; font-weight: 600; margin-bottom: 4px; }
+  .pc-desc { font-size: 12px; color: var(--text2); line-height: 1.5; }
+  .pc-meta { display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap; }
+  .pc-chip {
+    font-size: 10px;
+    padding: 2px 7px;
+    border-radius: 20px;
+    background: var(--surface2);
+    color: var(--text2);
+    border: 1px solid var(--border);
+  }
+
+  /* ── DAILY SCHEDULE ── */
+  .day-blocks { display: flex; flex-direction: column; gap: 10px; }
+  .day-block {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+  }
+  .day-block-header {
+    background: var(--surface2);
+    padding: 10px 14px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+  }
+  .day-name { font-size: 13px; font-weight: 600; }
+  .day-hours { font-size: 11px; color: var(--text3); }
+  .day-toggle { font-size: 12px; color: var(--text3); transition: transform 0.2s; }
+  .day-toggle.open { transform: rotate(180deg); }
+  .day-sessions { padding: 10px; display: flex; flex-direction: column; gap: 7px; }
+  .session {
+    display: grid;
+    grid-template-columns: 80px 1fr auto;
+    gap: 10px;
+    align-items: start;
+    padding: 8px 10px;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    background: var(--bg);
+  }
+  .session-time { font-size: 11px; color: var(--text3); font-family: var(--font-mono); padding-top: 1px; }
+  .session-task { font-size: 13px; font-weight: 500; }
+  .session-detail { font-size: 11px; color: var(--text2); margin-top: 2px; line-height: 1.5; }
+  .session-dur {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--accent);
+    background: var(--accent-light);
+    padding: 2px 7px;
+    border-radius: 20px;
+    white-space: nowrap;
+  }
+  .session.break { background: var(--info-light); border-color: rgba(26,58,92,0.1); }
+  .session.break .session-task { color: var(--info); font-size: 12px; font-weight: 400; }
+  .session.break .session-dur { color: var(--info); background: var(--info-light); }
+
+  /* ── TIPS ── */
+  .tips-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; }
+  .tip-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 0.9rem 1rem;
+    font-size: 13px;
+    color: var(--text2);
+    line-height: 1.6;
+  }
+  .tip-label { font-size: 11px; font-weight: 600; color: var(--accent); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 5px; }
+
+  /* ── DISCLAIMER ── */
+  .disclaimer {
+    background: var(--gold-light);
+    border: 1px solid rgba(139,105,20,0.2);
+    border-radius: var(--radius);
+    padding: 0.85rem 1rem;
+    font-size: 12px;
+    color: var(--gold);
+    line-height: 1.6;
+  }
+  .disclaimer strong { font-weight: 600; }
+
+  /* ── API KEY MODAL ── */
+  .modal-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.4);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 200;
+    backdrop-filter: blur(3px);
+  }
+  .modal {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 2rem;
+    width: 440px;
+    max-width: 90vw;
+    box-shadow: var(--shadow-lg);
+  }
+  .modal-title { font-family: var(--font-display); font-size: 20px; margin-bottom: 0.5rem; }
+  .modal-sub { font-size: 13px; color: var(--text2); margin-bottom: 1.5rem; line-height: 1.6; }
+  .api-key-note {
+    background: var(--info-light);
+    border: 1px solid rgba(26,58,92,0.15);
+    border-radius: var(--radius);
+    padding: 0.75rem 1rem;
+    font-size: 12px;
+    color: var(--info);
+    margin-bottom: 1rem;
+    line-height: 1.6;
+  }
+  .modal-actions { display: flex; gap: 8px; margin-top: 1rem; }
+  .modal-close-area { display: flex; justify-content: flex-end; margin-bottom: 1rem; }
+  .x-btn { background: none; border: none; cursor: pointer; color: var(--text3); font-size: 18px; padding: 2px 6px; }
+
+  /* ── ERROR ── */
+  .error-card {
+    background: var(--danger-light);
+    border: 1px solid rgba(122,26,26,0.2);
+    border-radius: var(--radius-lg);
+    padding: 1.25rem 1.5rem;
+    color: var(--danger);
+    font-size: 13px;
+    line-height: 1.6;
+  }
+  .error-title { font-weight: 600; font-size: 14px; margin-bottom: 6px; }
+
+  /* ── PRINT ── */
+  .print-plan {
+    background: var(--surface2);
+    border: 1px dashed var(--border2);
+    border-radius: var(--radius);
+    padding: 0.85rem 1rem;
+    font-size: 12px;
+    color: var(--text3);
+    text-align: center;
+  }
+
+  /* ── RESPONSIVE ── */
+  @media (max-width: 768px) {
+    .main { grid-template-columns: 1fr; }
+    .sidebar { max-height: 50vh; }
+    .output { padding: 1rem; }
+    .plan-header { grid-template-columns: 1fr; }
+    .priority-grid { grid-template-columns: 1fr; }
+    .tips-grid { grid-template-columns: 1fr; }
+  }
+
+  /* ── TRANSITIONS ── */
+  .fade-in { animation: fadeIn 0.3s ease; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+  .collapsed .day-sessions { display: none; }
+
+  /* ── SCROLLBAR ── */
+  ::-webkit-scrollbar { width: 5px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+  /* ── PROGRESS BAR ── */
+  .avail-total {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    background: var(--accent-light);
+    border-radius: var(--radius);
+    margin-top: 4px;
+    font-size: 12px;
+    color: var(--accent);
+    font-weight: 500;
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- HEADER -->
+  <header>
+    <div class="header-brand">
+      <div class="header-logo">📚</div>
+      <span class="header-name">ANU Study Planner</span>
+      <span class="header-tag">AI-powered</span>
+    </div>
+    <div class="header-actions">
+      <button class="btn-ghost" id="apiKeyBtn">⚙ API Key</button>
+      <button class="btn-ghost" id="clearBtn">Clear all</button>
+    </div>
+  </header>
+
+  <!-- MAIN -->
+  <div class="main">
+
+    <!-- SIDEBAR -->
+    <aside class="sidebar">
+
+      <!-- Tasks -->
+      <div class="panel">
+        <div class="panel-header">
+          <span class="panel-title">Your tasks &amp; deadlines</span>
+          <span style="font-size:11px;color:var(--text3)" id="taskCount">0 tasks</span>
+        </div>
+        <div class="panel-body">
+          <div class="task-list" id="taskList">
+            <div style="text-align:center;font-size:12px;color:var(--text3);padding:8px 0">No tasks yet — add one below</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Add Task Form -->
+      <div class="panel">
+        <div class="panel-header">
+          <span class="panel-title">Add a task</span>
+        </div>
+        <div class="panel-body">
+          <div class="form-group">
+            <label>Task name</label>
+            <input type="text" id="taskName" placeholder="e.g. COMP2310 Assignment 2" />
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Due date</label>
+              <input type="date" id="taskDue" />
+            </div>
+            <div class="form-group">
+              <label>Grade weight (%)</label>
+              <input type="number" id="taskWeight" min="0" max="100" placeholder="30" />
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Effort (hours)</label>
+              <input type="number" id="taskHours" min="0.5" step="0.5" placeholder="8" />
+            </div>
+            <div class="form-group">
+              <label>Progress (%)</label>
+              <input type="number" id="taskProgress" min="0" max="100" placeholder="0" />
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Subject / course</label>
+            <input type="text" id="taskCourse" placeholder="e.g. COMP2310" />
+          </div>
+          <div class="form-group">
+            <label>Type</label>
+            <select id="taskType">
+              <option value="assignment">Assignment</option>
+              <option value="exam">Exam / test</option>
+              <option value="project">Group project</option>
+              <option value="reading">Reading / prep</option>
+              <option value="lab">Lab / practical</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+          <button class="btn btn-add" id="addTaskBtn">+ Add task</button>
+        </div>
+      </div>
+
+      <!-- Availability -->
+      <div class="panel">
+        <div class="panel-header">
+          <span class="panel-title">Weekly availability</span>
+        </div>
+        <div class="panel-body">
+          <p style="font-size:11px;color:var(--text3);margin-bottom:12px">Drag to set study hours available each day</p>
+          <div id="availGrid"></div>
+          <div class="avail-total" id="availTotal">
+            <span>Total available: <strong id="totalHours">0</strong> hrs/week</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Context -->
+      <div class="panel">
+        <div class="panel-header">
+          <span class="panel-title">Additional context (optional)</span>
+        </div>
+        <div class="panel-body">
+          <div class="form-group">
+            <label>Work / other commitments</label>
+            <input type="text" id="ctxWork" placeholder="e.g. Part-time work Mon/Wed 3–7pm" />
+          </div>
+          <div class="form-group">
+            <label>Study preferences</label>
+            <input type="text" id="ctxPrefs" placeholder="e.g. Morning person, prefer 2-hr blocks" />
+          </div>
+          <div class="form-group">
+            <label>Anything else?</label>
+            <textarea id="ctxExtra" placeholder="Exam period starts in 2 weeks, struggling with maths content..."></textarea>
+          </div>
+        </div>
+      </div>
+
+      <!-- Generate -->
+      <button class="btn btn-primary" id="generateBtn" disabled>
+        <span>✦</span> Generate my study plan
+      </button>
+
+    </aside>
+
+    <!-- OUTPUT -->
+    <main class="output" id="outputArea">
+      <div class="hero-state" id="heroState">
+        <div class="hero-icon">📋</div>
+        <div class="hero-title">Your personalised study plan</div>
+        <div class="hero-sub">Add your tasks and deadlines on the left, set your weekly availability, then click Generate to get a realistic AI-powered plan.</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:8px">
+          <span style="background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:5px 12px;font-size:12px;color:var(--text2)">📌 Prioritises by urgency + weight</span>
+          <span style="background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:5px 12px;font-size:12px;color:var(--text2)">⏱ Respects your real schedule</span>
+          <span style="background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:5px 12px;font-size:12px;color:var(--text2)">🎯 Breaks tasks into sessions</span>
+        </div>
+      </div>
+    </main>
+
+  </div>
+</div>
+
+<!-- API KEY MODAL -->
+<div class="modal-overlay" id="apiModal" style="display:none">
+  <div class="modal">
+    <div class="modal-close-area">
+      <button class="x-btn" id="closeModal">✕</button>
+    </div>
+    <div class="modal-title">Enter your API key</div>
+    <div class="modal-sub">This app uses the Anthropic Claude API to generate your personalised study plan. Your key is stored only in your browser's memory and never sent to any server other than Anthropic's.</div>
+    <div class="api-key-note">
+      <strong>Get a free API key:</strong> Visit <a href="https://console.anthropic.com" target="_blank" style="color:inherit">console.anthropic.com</a> → Sign up → API Keys → Create key.<br/>
+      New accounts get free credits. The Buildathon demo will use minimal tokens.
+    </div>
+    <label>Anthropic API key</label>
+    <input type="password" id="apiKeyInput" placeholder="sk-ant-..." style="margin-top:5px" />
+    <div class="modal-actions">
+      <button class="btn btn-primary" id="saveKeyBtn" style="flex:1">Save key</button>
+    </div>
+    <p style="font-size:11px;color:var(--text3);margin-top:12px;text-align:center">Key is kept in-memory only and cleared when you close the tab.</p>
+  </div>
+</div>
+
+<script>
+// ── STATE ──
+let tasks = [];
+let apiKey = '';
+let planVisible = false;
+const days = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+let avail = { Monday:4, Tuesday:4, Wednesday:3, Thursday:4, Friday:3, Saturday:6, Sunday:5 };
+
+// ── AVAILABILITY GRID ──
+function buildAvailGrid() {
+  const g = document.getElementById('availGrid');
+  g.innerHTML = '';
+  days.forEach(d => {
+    const row = document.createElement('div');
+    row.className = 'day-row';
+    row.innerHTML = `
+      <span class="day-label">${d.slice(0,3)}</span>
+      <input type="range" min="0" max="12" step="0.5" value="${avail[d]}" data-day="${d}" class="avail-slider" />
+      <span class="hours-val" id="av-${d}">${avail[d]}h</span>
+    `;
+    g.appendChild(row);
+  });
+  document.querySelectorAll('.avail-slider').forEach(s => {
+    s.addEventListener('input', e => {
+      avail[e.target.dataset.day] = parseFloat(e.target.value);
+      document.getElementById('av-' + e.target.dataset.day).textContent = e.target.value + 'h';
+      updateTotalHours();
+    });
+  });
+  updateTotalHours();
+}
+
+function updateTotalHours() {
+  const total = Object.values(avail).reduce((a,b) => a+b, 0);
+  document.getElementById('totalHours').textContent = total.toFixed(1);
+}
+
+// ── TASKS ──
+function addTask() {
+  const name = document.getElementById('taskName').value.trim();
+  const due = document.getElementById('taskDue').value;
+  const weight = parseFloat(document.getElementById('taskWeight').value) || 0;
+  const hours = parseFloat(document.getElementById('taskHours').value) || 2;
+  const progress = parseFloat(document.getElementById('taskProgress').value) || 0;
+  const course = document.getElementById('taskCourse').value.trim();
+  const type = document.getElementById('taskType').value;
+  if (!name || !due) { alert('Please enter a task name and due date.'); return; }
+  tasks.push({ id: Date.now(), name, due, weight, hours, progress, course, type });
+  clearTaskForm();
+  renderTasks();
+  updateGenerateBtn();
+}
+
+function clearTaskForm() {
+  ['taskName','taskDue','taskWeight','taskHours','taskProgress','taskCourse'].forEach(id => {
+    document.getElementById(id).value = '';
+  });
+}
+
+function renderTasks() {
+  const list = document.getElementById('taskList');
+  document.getElementById('taskCount').textContent = tasks.length + ' task' + (tasks.length !== 1 ? 's' : '');
+  if (!tasks.length) {
+    list.innerHTML = '<div style="text-align:center;font-size:12px;color:var(--text3);padding:8px 0">No tasks yet — add one below</div>';
+    return;
+  }
+  list.innerHTML = '';
+  const sorted = [...tasks].sort((a,b) => new Date(a.due) - new Date(b.due));
+  sorted.forEach(t => {
+    const daysUntil = Math.ceil((new Date(t.due) - new Date()) / 86400000);
+    const priority = daysUntil <= 2 ? 'high' : daysUntil <= 7 ? 'med' : 'low';
+    const badgeClass = priority === 'high' ? 'badge-high' : priority === 'med' ? 'badge-med' : 'badge-low';
+    const badgeText = priority === 'high' ? 'Urgent' : priority === 'med' ? 'Soon' : 'Upcoming';
+    const rem = Math.round(t.hours * (1 - t.progress / 100) * 10) / 10;
+    const card = document.createElement('div');
+    card.className = 'task-card';
+    card.innerHTML = `
+      <div>
+        <div class="task-name">${t.name}</div>
+        <div class="task-meta">
+          <span>📅 ${t.due}</span>
+          ${t.course ? `<span>${t.course}</span>` : ''}
+          <span>${rem}h left</span>
+          ${t.weight ? `<span>${t.weight}%</span>` : ''}
+        </div>
+      </div>
+      <span class="task-badge ${badgeClass}">${badgeText}</span>
+      <button class="task-del" data-id="${t.id}">✕</button>
+    `;
+    list.appendChild(card);
+  });
+  list.querySelectorAll('.task-del').forEach(b => {
+    b.addEventListener('click', e => {
+      e.stopPropagation();
+      tasks = tasks.filter(t => t.id !== parseInt(b.dataset.id));
+      renderTasks();
+      updateGenerateBtn();
+    });
+  });
+}
+
+function updateGenerateBtn() {
+  document.getElementById('generateBtn').disabled = tasks.length === 0;
+}
+
+// ── API KEY MODAL ──
+document.getElementById('apiKeyBtn').addEventListener('click', () => {
+  document.getElementById('apiModal').style.display = 'flex';
+  if (apiKey) document.getElementById('apiKeyInput').value = apiKey;
+});
+document.getElementById('closeModal').addEventListener('click', () => {
+  document.getElementById('apiModal').style.display = 'none';
+});
+document.getElementById('saveKeyBtn').addEventListener('click', () => {
+  const k = document.getElementById('apiKeyInput').value.trim();
+  if (!k.startsWith('sk-ant-')) { alert('Please enter a valid Anthropic API key (starts with sk-ant-)'); return; }
+  apiKey = k;
+  document.getElementById('apiModal').style.display = 'none';
+});
+
+// ── CLEAR ──
+document.getElementById('clearBtn').addEventListener('click', () => {
+  if (confirm('Clear all tasks and the current plan?')) {
+    tasks = [];
+    renderTasks();
+    updateGenerateBtn();
+    showHeroState();
+  }
+});
+
+// ── ADD TASK ──
+document.getElementById('addTaskBtn').addEventListener('click', addTask);
+document.getElementById('taskName').addEventListener('keypress', e => { if (e.key === 'Enter') addTask(); });
+
+// ── SET DEFAULT DATE ──
+const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 3);
+document.getElementById('taskDue').value = tomorrow.toISOString().split('T')[0];
+
+// ── GENERATE ──
+document.getElementById('generateBtn').addEventListener('click', generatePlan);
+
+async function generatePlan() {
+  if (!apiKey) {
+    document.getElementById('apiModal').style.display = 'flex';
+    return;
+  }
+  showLoading();
+
+  const totalAvail = Object.values(avail).reduce((a,b) => a+b, 0);
+  const work = document.getElementById('ctxWork').value;
+  const prefs = document.getElementById('ctxPrefs').value;
+  const extra = document.getElementById('ctxExtra').value;
+  const today = new Date().toISOString().split('T')[0];
+
+  const prompt = `You are an expert academic study planner for university students at ANU (Australian National University). Today is ${today}.
+
+A student has the following tasks:
+${tasks.map(t => {
+  const rem = Math.round(t.hours * (1 - t.progress / 100) * 10) / 10;
+  return `- "${t.name}" (${t.course || 'no course'}, ${t.type}): due ${t.due}, ${t.weight}% of grade, ${rem} hours of work remaining (${t.progress}% done)`;
+}).join('\n')}
+
+Their weekly study availability (hours per day):
+${days.map(d => `- ${d}: ${avail[d]} hours`).join('\n')}
+Total available: ${totalAvail} hours
+
+Additional context:
+- Other commitments: ${work || 'None specified'}
+- Study preferences: ${prefs || 'None specified'}
+- Extra notes: ${extra || 'None'}
+
+Create a detailed, realistic study plan. Return ONLY valid JSON with this exact structure:
+{
+  "summary": "2-3 sentence overview of the plan and key considerations",
+  "totalStudyHours": number,
+  "priorities": [
+    {
+      "name": "task name",
+      "priority": "critical|high|medium|low",
+      "reasoning": "why this priority",
+      "hoursAllocated": number,
+      "chips": ["chip1", "chip2"]
+    }
+  ],
+  "schedule": [
+    {
+      "day": "Monday",
+      "totalHours": number,
+      "sessions": [
+        {
+          "time": "9:00 AM",
+          "task": "task name or Break",
+          "detail": "what specifically to do",
+          "duration": "1.5 hrs",
+          "isBreak": false
+        }
+      ]
+    }
+  ],
+  "tips": [
+    { "label": "tip category", "advice": "specific actionable advice" }
+  ],
+  "limitations": "honest note about what this plan can't account for"
+}
+
+Rules:
+- Only schedule days where the student has availability > 0
+- Respect the hours available per day
+- Break tasks into specific sub-tasks (e.g. "Write intro section", "Review lecture 3-5", "Practice problem set")
+- Add 10-min breaks between sessions
+- Prioritise: urgent + high-weight tasks first
+- Be realistic — don't overschedule
+- Schedule at most 4-5 hours per day of focused study
+- Include 3-4 practical tips
+- Return only the JSON object, no other text`;
+
+  try {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({
+        model: 'claude-opus-4-5',
+        max_tokens: 4000,
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+
+    if (!response.ok) {
+      const err = await response.json();
+      throw new Error(err.error?.message || 'API error ' + response.status);
+    }
+
+    const data = await response.json();
+    let text = data.content[0].text.trim();
+    // strip markdown fences if present
+    text = text.replace(/^```json\n?/, '').replace(/\n?```$/, '').trim();
+    const plan = JSON.parse(text);
+    renderPlan(plan);
+  } catch (err) {
+    showError(err.message);
+  }
+}
+
+// ── RENDER HELPERS ──
+function showHeroState() {
+  const out = document.getElementById('outputArea');
+  out.innerHTML = `
+    <div class="hero-state" id="heroState">
+      <div class="hero-icon">📋</div>
+      <div class="hero-title">Your personalised study plan</div>
+      <div class="hero-sub">Add your tasks and deadlines on the left, set your weekly availability, then click Generate to get a realistic AI-powered plan.</div>
+    </div>`;
+}
+
+function showLoading() {
+  const out = document.getElementById('outputArea');
+  out.innerHTML = `
+    <div class="loading-state fade-in">
+      <div class="spinner"></div>
+      <div class="loading-label">Generating your plan<span class="loading-dots"></span></div>
+      <div style="font-size:12px;color:var(--text3);text-align:center;max-width:280px">Analysing ${tasks.length} tasks, weighing deadlines and priorities, building your week...</div>
+    </div>`;
+}
+
+function showError(msg) {
+  const out = document.getElementById('outputArea');
+  out.innerHTML = `
+    <div class="error-card fade-in">
+      <div class="error-title">Something went wrong</div>
+      <div>${escHtml(msg)}</div>
+      <div style="margin-top:10px;font-size:12px">Make sure your API key is correct (Settings → API Key) and that you have available credits.</div>
+    </div>`;
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function renderPlan(plan) {
+  const out = document.getElementById('outputArea');
+  out.innerHTML = '';
+
+  // Header card
+  const header = document.createElement('div');
+  header.className = 'plan-header fade-in';
+  header.innerHTML = `
+    <div>
+      <div class="plan-title-row">
+        <span class="plan-main-title">Your Study Plan</span>
+      </div>
+      <div class="plan-sub">${escHtml(plan.summary)}</div>
+      <div class="plan-stats">
+        <div class="plan-stat">📚 ${tasks.length} tasks</div>
+        <div class="plan-stat">⏱ ${plan.totalStudyHours}h allocated</div>
+        <div class="plan-stat">📅 ${(plan.schedule||[]).length} days scheduled</div>
+      </div>
+    </div>
+    <div class="plan-actions">
+      <button class="btn-ghost" onclick="window.print()">🖨 Print</button>
+    </div>`;
+  out.appendChild(header);
+
+  // Priorities
+  if (plan.priorities && plan.priorities.length) {
+    const sec = document.createElement('div');
+    sec.className = 'fade-in';
+    sec.innerHTML = `<div class="section-title">Task priorities</div>`;
+    const grid = document.createElement('div');
+    grid.className = 'priority-grid';
+    plan.priorities.forEach(p => {
+      const card = document.createElement('div');
+      card.className = `priority-card p-${p.priority}`;
+      card.innerHTML = `
+        <div class="pc-name">${escHtml(p.name)}</div>
+        <div class="pc-desc">${escHtml(p.reasoning)}</div>
+        <div class="pc-meta">
+          <span class="pc-chip">${p.priority.charAt(0).toUpperCase()+p.priority.slice(1)}</span>
+          <span class="pc-chip">${p.hoursAllocated}h</span>
+          ${(p.chips||[]).map(c => `<span class="pc-chip">${escHtml(c)}</span>`).join('')}
+        </div>`;
+      grid.appendChild(card);
+    });
+    sec.appendChild(grid);
+    out.appendChild(sec);
+  }
+
+  // Schedule
+  if (plan.schedule && plan.schedule.length) {
+    const sec = document.createElement('div');
+    sec.className = 'fade-in';
+    sec.innerHTML = `<div class="section-title">Daily schedule</div>`;
+    const blocks = document.createElement('div');
+    blocks.className = 'day-blocks';
+    plan.schedule.forEach(day => {
+      const block = document.createElement('div');
+      block.className = 'day-block';
+      block.innerHTML = `
+        <div class="day-block-header" onclick="this.parentElement.classList.toggle('collapsed');this.querySelector('.day-toggle').classList.toggle('open')">
+          <div>
+            <span class="day-name">${escHtml(day.day)}</span>
+            <span class="day-hours" style="margin-left:8px">${(day.sessions||[]).filter(s=>!s.isBreak).length} sessions · ${day.totalHours}h</span>
+          </div>
+          <span class="day-toggle open">▼</span>
+        </div>
+        <div class="day-sessions">
+          ${(day.sessions||[]).map(s => `
+            <div class="session${s.isBreak ? ' break' : ''}">
+              <div class="session-time">${escHtml(s.time||'')}</div>
+              <div>
+                <div class="session-task">${escHtml(s.task)}</div>
+                <div class="session-detail">${escHtml(s.detail||'')}</div>
+              </div>
+              <span class="session-dur">${escHtml(s.duration||'')}</span>
+            </div>`).join('')}
+        </div>`;
+      blocks.appendChild(block);
+    });
+    sec.appendChild(blocks);
+    out.appendChild(sec);
+  }
+
+  // Tips
+  if (plan.tips && plan.tips.length) {
+    const sec = document.createElement('div');
+    sec.className = 'fade-in';
+    sec.innerHTML = `<div class="section-title">Study tips for you</div>`;
+    const grid = document.createElement('div');
+    grid.className = 'tips-grid';
+    plan.tips.forEach(t => {
+      const card = document.createElement('div');
+      card.className = 'tip-card';
+      card.innerHTML = `<div class="tip-label">${escHtml(t.label)}</div>${escHtml(t.advice)}`;
+      grid.appendChild(card);
+    });
+    sec.appendChild(grid);
+    out.appendChild(sec);
+  }
+
+  // Disclaimer
+  const disc = document.createElement('div');
+  disc.className = 'disclaimer fade-in';
+  disc.innerHTML = `<strong>⚠ Honest limitations:</strong> ${escHtml(plan.limitations || '')} This plan is a guide — adjust it to fit your actual energy levels. It is not an official ANU document.`;
+  out.appendChild(disc);
+
+  // Print tip
+  const pt = document.createElement('div');
+  pt.className = 'print-plan fade-in';
+  pt.textContent = '🖨 Use your browser\'s Print function (Ctrl+P / Cmd+P) to save or print this plan';
+  out.appendChild(pt);
+}
+
+// ── INIT ──
+buildAvailGrid();
+renderTasks();
+</script>
+</body>
+</html>
