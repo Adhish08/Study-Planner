@@ -1,0 +1,1040 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>ANU Study Planner — AI Workload Manager</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600&family=DM+Mono&display=swap" rel="stylesheet" />
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg: #F5F2EC;
+  --surface: #FDFCF9;
+  --surface2: #F0EDE6;
+  --border: #D8D3C8;
+  --border2: #C5BFB2;
+  --text: #1A1814;
+  --text2: #5A564F;
+  --text3: #8A8680;
+  --accent: #2D5016;
+  --accent-light: #EBF2E3;
+  --accent-mid: #3D6B1F;
+  --warn: #7A3B10;
+  --warn-light: #FDF0E7;
+  --info: #1A3A5C;
+  --info-light: #E8EFF8;
+  --danger: #7A1A1A;
+  --danger-light: #FAE8E8;
+  --gold: #8B6914;
+  --gold-light: #FDF4DC;
+  --canvas-blue: #E66000;
+  --canvas-blue-light: #FFF3EC;
+  --ollama-purple: #6C3FC8;
+  --ollama-purple-light: #F3EEFF;
+  --radius: 10px;
+  --radius-lg: 16px;
+  --shadow: 0 1px 3px rgba(0,0,0,0.07), 0 4px 12px rgba(0,0,0,0.04);
+  --shadow-lg: 0 4px 16px rgba(0,0,0,0.1), 0 1px 4px rgba(0,0,0,0.06);
+  --font-display: 'DM Serif Display', Georgia, serif;
+  --font-body: 'DM Sans', system-ui, sans-serif;
+  --font-mono: 'DM Mono', monospace;
+}
+html { font-size: 15px; }
+body { font-family: var(--font-body); background: var(--bg); color: var(--text); min-height: 100vh; line-height: 1.6; }
+
+/* LAYOUT */
+.app { display: grid; grid-template-rows: auto 1fr; min-height: 100vh; }
+
+/* HEADER */
+header {
+  background: var(--accent); color: white; padding: 0 2rem;
+  display: flex; align-items: center; justify-content: space-between;
+  height: 56px; position: sticky; top: 0; z-index: 100;
+}
+.header-brand { display: flex; align-items: center; gap: 10px; }
+.header-logo {
+  width: 28px; height: 28px; background: rgba(255,255,255,0.2);
+  border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 14px;
+}
+.header-name { font-family: var(--font-display); font-size: 17px; letter-spacing: -0.01em; }
+.header-tag { background: rgba(255,255,255,0.15); font-size: 11px; padding: 2px 8px; border-radius: 20px; letter-spacing: 0.03em; }
+.header-actions { display: flex; gap: 8px; align-items: center; }
+.btn-ghost { background: transparent; border: 1px solid rgba(255,255,255,0.3); color: white; padding: 5px 12px; border-radius: 6px; font-size: 12px; cursor: pointer; font-family: var(--font-body); transition: background 0.15s; }
+.btn-ghost:hover { background: rgba(255,255,255,0.1); }
+.canvas-status { display: flex; align-items: center; gap: 6px; font-size: 12px; }
+.canvas-dot { width: 7px; height: 7px; border-radius: 50%; background: rgba(255,255,255,0.3); }
+.canvas-dot.connected { background: #7CDA4A; }
+
+/* MAIN GRID */
+.main { display: grid; grid-template-columns: 380px 1fr; gap: 0; min-height: calc(100vh - 56px); }
+
+/* SIDEBAR */
+.sidebar { background: var(--surface); border-right: 1px solid var(--border); overflow-y: auto; padding: 1.5rem; display: flex; flex-direction: column; gap: 1.25rem; }
+.panel { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; }
+.panel-header { padding: 0.85rem 1rem; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; background: var(--surface2); }
+.panel-title { font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text2); }
+.panel-body { padding: 1rem; }
+
+/* CANVAS PANEL */
+.canvas-panel { border-color: #E8C5A0; }
+.canvas-panel .panel-header { background: var(--canvas-blue-light); border-color: #E8C5A0; }
+.canvas-panel .panel-title { color: var(--canvas-blue); }
+.canvas-notice { font-size: 11px; color: var(--text3); background: var(--surface2); border-radius: 8px; padding: 8px 10px; line-height: 1.5; margin-bottom: 10px; border-left: 3px solid var(--border2); }
+.canvas-notice strong { color: var(--text2); }
+.token-input-wrap { position: relative; }
+.token-input-wrap input { padding-right: 36px; font-family: var(--font-mono); font-size: 12px; }
+.token-eye { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; color: var(--text3); font-size: 14px; padding: 0; }
+.course-list { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+.course-item { display: flex; align-items: center; gap: 8px; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; cursor: pointer; transition: all 0.15s; }
+.course-item:hover { border-color: var(--canvas-blue); }
+.course-item.selected { border-color: var(--canvas-blue); background: var(--canvas-blue-light); }
+.course-check { width: 16px; height: 16px; border: 1.5px solid var(--border2); border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 10px; flex-shrink: 0; }
+.course-item.selected .course-check { background: var(--canvas-blue); border-color: var(--canvas-blue); color: white; }
+.course-name { font-size: 12px; font-weight: 500; flex: 1; }
+.course-code { font-size: 10px; color: var(--text3); font-family: var(--font-mono); }
+.import-btn { width: 100%; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 9px; border-radius: 8px; font-size: 12px; font-weight: 500; cursor: pointer; border: none; font-family: var(--font-body); background: var(--canvas-blue); color: white; transition: opacity 0.15s; margin-top: 8px; }
+.import-btn:hover:not(:disabled) { opacity: 0.88; }
+.import-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.import-spinner { width: 13px; height: 13px; border: 2px solid rgba(255,255,255,0.3); border-top-color: white; border-radius: 50%; animation: spin 0.7s linear infinite; }
+
+/* FORM ELEMENTS */
+label { font-size: 12px; font-weight: 500; color: var(--text2); display: block; margin-bottom: 5px; }
+input, select, textarea { width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 8px 10px; font-family: var(--font-body); font-size: 13px; color: var(--text); transition: border-color 0.15s, box-shadow 0.15s; outline: none; }
+input:focus, select:focus, textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(45,80,22,0.08); }
+textarea { resize: vertical; min-height: 72px; }
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.form-group { margin-bottom: 10px; }
+
+/* TASK CARD */
+.task-list { display: flex; flex-direction: column; gap: 7px; }
+.task-card { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 12px; display: grid; grid-template-columns: 1fr auto; gap: 6px; cursor: pointer; transition: border-color 0.15s, box-shadow 0.15s; position: relative; }
+.task-card:hover { border-color: var(--border2); box-shadow: var(--shadow); }
+.task-card.selected { border-color: var(--accent); background: var(--accent-light); }
+.task-card.from-canvas { border-left: 3px solid var(--canvas-blue); }
+.task-name { font-size: 13px; font-weight: 500; }
+.task-meta { font-size: 11px; color: var(--text3); display: flex; gap: 8px; margin-top: 2px; }
+.canvas-tag { font-size: 10px; background: var(--canvas-blue-light); color: var(--canvas-blue); padding: 1px 5px; border-radius: 4px; font-weight: 600; }
+.task-badge { font-size: 10px; padding: 1px 7px; border-radius: 20px; font-weight: 600; align-self: start; white-space: nowrap; }
+.badge-high { background: var(--danger-light); color: var(--danger); }
+.badge-med { background: var(--warn-light); color: var(--warn); }
+.badge-low { background: var(--gold-light); color: var(--gold); }
+.task-del { position: absolute; right: 6px; top: 6px; background: none; border: none; color: var(--text3); cursor: pointer; font-size: 14px; padding: 0 2px; opacity: 0; transition: opacity 0.15s; line-height: 1; }
+.task-card:hover .task-del { opacity: 1; }
+
+/* AVAILABILITY */
+.day-row { display: grid; grid-template-columns: 80px 1fr 48px; align-items: center; gap: 8px; margin-bottom: 7px; }
+.day-label { font-size: 12px; color: var(--text2); }
+.hours-val { font-size: 12px; font-weight: 600; text-align: center; color: var(--accent); }
+input[type="range"] { -webkit-appearance: none; height: 4px; background: var(--border); border-radius: 2px; padding: 0; border: none; box-shadow: none; }
+input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px; border-radius: 50%; background: var(--accent); cursor: pointer; border: 2px solid white; box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
+input[type="range"]:focus { box-shadow: none; border: none; }
+
+/* BUTTONS */
+.btn { display: inline-flex; align-items: center; gap: 6px; padding: 10px 18px; border-radius: var(--radius); font-family: var(--font-body); font-size: 13px; font-weight: 500; cursor: pointer; border: none; transition: all 0.15s; text-decoration: none; }
+.btn-primary { background: var(--accent); color: white; width: 100%; justify-content: center; padding: 12px; font-size: 14px; }
+.btn-primary:hover:not(:disabled) { background: var(--accent-mid); }
+.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-outline { background: transparent; border: 1px solid var(--border2); color: var(--text2); font-size: 12px; padding: 6px 12px; }
+.btn-outline:hover { background: var(--surface2); color: var(--text); }
+.btn-add { background: var(--accent-light); color: var(--accent); border: 1px dashed var(--accent); width: 100%; justify-content: center; font-size: 12px; padding: 8px; }
+.btn-add:hover { background: var(--accent); color: white; }
+
+/* OUTPUT AREA */
+.output { padding: 2rem; overflow-y: auto; display: flex; flex-direction: column; gap: 1.5rem; }
+
+/* HERO STATE */
+.hero-state { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 1rem; padding: 3rem; color: var(--text3); }
+.hero-icon { width: 64px; height: 64px; background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius-lg); display: flex; align-items: center; justify-content: center; font-size: 28px; }
+.hero-title { font-family: var(--font-display); font-size: 22px; color: var(--text); }
+.hero-sub { font-size: 14px; max-width: 340px; line-height: 1.7; }
+
+/* LOADING */
+.loading-state { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1rem; color: var(--text2); }
+.spinner { width: 40px; height: 40px; border: 3px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.loading-label { font-size: 14px; }
+.loading-dots::after { content: ''; animation: dots 1.5s steps(4, end) infinite; }
+@keyframes dots { 0% { content: ''; } 25% { content: '.'; } 50% { content: '..'; } 75% { content: '...'; } 100% { content: ''; } }
+
+/* PLAN OUTPUT */
+.plan-header { background: var(--accent); color: white; border-radius: var(--radius-lg); padding: 1.5rem; display: grid; grid-template-columns: 1fr auto; gap: 1rem; align-items: start; }
+.plan-title { font-family: var(--font-display); font-size: 20px; margin-bottom: 4px; }
+.plan-meta { font-size: 13px; opacity: 0.75; }
+.plan-actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+.plan-week { display: flex; flex-direction: column; gap: 1rem; }
+.day-block { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; }
+.day-block-header { padding: 0.75rem 1rem; background: var(--surface2); border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+.day-name { font-weight: 600; font-size: 14px; }
+.day-hours { font-size: 12px; color: var(--text3); }
+.session-list { padding: 0.75rem; display: flex; flex-direction: column; gap: 0.5rem; }
+.session-item { display: grid; grid-template-columns: 90px 1fr auto; gap: 10px; align-items: center; padding: 9px 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg); }
+.session-time { font-size: 11px; font-family: var(--font-mono); color: var(--text3); }
+.session-info { display: flex; flex-direction: column; gap: 2px; }
+.session-task { font-size: 13px; font-weight: 500; }
+.session-course { font-size: 11px; color: var(--text3); }
+.session-dur { font-size: 11px; color: var(--text2); white-space: nowrap; }
+
+/* ALERTS */
+.alert { border-radius: var(--radius); padding: 10px 12px; font-size: 13px; display: flex; gap: 8px; align-items: flex-start; }
+.alert-info { background: var(--info-light); color: var(--info); border: 1px solid #B8CCE0; }
+.alert-warn { background: var(--warn-light); color: var(--warn); border: 1px solid #E0C0A0; }
+.alert-success { background: var(--accent-light); color: var(--accent); border: 1px solid #B8D4A0; }
+.alert-danger { background: var(--danger-light); color: var(--danger); border: 1px solid #E0B8B8; }
+
+/* MODAL */
+.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 200; display: flex; align-items: center; justify-content: center; padding: 1.5rem; }
+.modal { background: var(--surface); border-radius: var(--radius-lg); max-width: 480px; width: 100%; box-shadow: var(--shadow-lg); overflow: hidden; }
+.modal-header { padding: 1.25rem 1.5rem; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+.modal-title { font-family: var(--font-display); font-size: 18px; }
+.modal-close { background: none; border: none; font-size: 20px; cursor: pointer; color: var(--text3); line-height: 1; padding: 0; }
+.modal-body { padding: 1.5rem; }
+.modal-footer { padding: 1rem 1.5rem; border-top: 1px solid var(--border); display: flex; gap: 8px; justify-content: flex-end; }
+.steps { display: flex; flex-direction: column; gap: 10px; counter-reset: steps; }
+.step { display: flex; gap: 12px; align-items: flex-start; font-size: 13px; }
+.step-num { width: 22px; height: 22px; border-radius: 50%; background: var(--accent); color: white; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 1px; }
+.step-text { line-height: 1.55; color: var(--text2); }
+.step-text strong { color: var(--text); }
+code { background: var(--surface2); border: 1px solid var(--border); border-radius: 4px; padding: 1px 5px; font-family: var(--font-mono); font-size: 11px; color: var(--text); }
+
+/* EMPTY TASK */
+.empty-tasks { text-align: center; padding: 1.5rem 1rem; color: var(--text3); font-size: 13px; }
+.divider { display: flex; align-items: center; gap: 10px; color: var(--text3); font-size: 11px; letter-spacing: 0.05em; text-transform: uppercase; margin: 4px 0; }
+.divider::before, .divider::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+/* AI BACKEND TOGGLE */
+.ai-toggle-wrap { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 10px; }
+.ai-toggle-btn { border: 1.5px solid var(--border); border-radius: 8px; padding: 10px 8px; cursor: pointer; background: var(--bg); text-align: center; transition: all 0.15s; font-family: var(--font-body); }
+.ai-toggle-btn:hover { border-color: var(--border2); }
+.ai-toggle-btn.active-cloud { border-color: var(--accent); background: var(--accent-light); }
+.ai-toggle-btn.active-local { border-color: var(--ollama-purple); background: var(--ollama-purple-light); }
+.ai-toggle-icon { font-size: 18px; margin-bottom: 3px; }
+.ai-toggle-label { font-size: 12px; font-weight: 600; color: var(--text); display: block; }
+.ai-toggle-sub { font-size: 10px; color: var(--text3); display: block; margin-top: 1px; }
+.ai-config-section { display: flex; flex-direction: column; gap: 8px; }
+.privacy-bar { display: flex; align-items: center; gap: 6px; font-size: 11px; padding: 7px 10px; border-radius: 8px; }
+.privacy-bar.cloud { background: var(--warn-light); color: var(--warn); border: 1px solid #E0C0A0; }
+.privacy-bar.local { background: var(--accent-light); color: var(--accent); border: 1px solid #B8D4A0; }
+.privacy-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+.privacy-dot.cloud { background: var(--warn); }
+.privacy-dot.local { background: var(--accent); }
+.ollama-steps { font-size: 11px; color: var(--text3); background: var(--surface2); border-radius: 8px; padding: 9px 10px; line-height: 1.7; }
+.ollama-steps code { background: var(--bg); }
+</style>
+</head>
+<body>
+<div class="app">
+
+<!-- HEADER -->
+<header>
+  <div class="header-brand">
+    <div class="header-logo">📚</div>
+    <span class="header-name">ANU Study Planner</span>
+    <span class="header-tag">AI + Canvas</span>
+  </div>
+  <div class="header-actions">
+    <div class="canvas-status">
+      <div class="canvas-dot" id="canvasDot"></div>
+      <span id="canvasStatusText" style="opacity:0.7">Canvas not connected</span>
+    </div>
+    <button class="btn-ghost" onclick="openCanvasHelp()">? How to get token</button>
+    <button class="btn-ghost" onclick="clearAll()">↺ Reset</button>
+  </div>
+</header>
+
+<div class="main">
+<!-- SIDEBAR -->
+<div class="sidebar">
+
+  <!-- CANVAS INTEGRATION PANEL -->
+  <div class="panel canvas-panel">
+    <div class="panel-header">
+      <span class="panel-title">🎓 Canvas LMS Integration</span>
+      <button class="btn-outline" style="font-size:11px;padding:3px 8px" onclick="openCanvasHelp()">How to connect</button>
+    </div>
+    <div class="panel-body">
+      <div class="canvas-notice">
+        <strong>Privacy:</strong> Your token is stored only in memory (cleared on tab close). Only assignment names and due dates are sent to the AI — no grades, files, or personal data.
+      </div>
+      <div class="form-group">
+        <label for="canvasToken">Canvas Access Token</label>
+        <div class="token-input-wrap">
+          <input type="password" id="canvasToken" placeholder="Paste your Canvas token here…" autocomplete="off" />
+          <button class="token-eye" onclick="toggleTokenVis()" title="Show/hide token">👁</button>
+        </div>
+      </div>
+      <div class="form-group">
+        <label for="canvasDomain">Canvas Domain</label>
+        <input type="text" id="canvasDomain" value="canvas.anu.edu.au" placeholder="canvas.anu.edu.au" />
+      </div>
+      <button class="import-btn" id="connectBtn" onclick="connectCanvas()">
+        <span id="connectBtnText">Connect & Fetch Courses</span>
+      </button>
+
+      <div id="courseSection" style="display:none; margin-top:12px;">
+        <div class="divider">Your courses</div>
+        <div class="course-list" id="courseList"></div>
+        <button class="import-btn" id="importBtn" onclick="importAssignments()" style="margin-top:8px; background: var(--accent);" disabled>
+          <span id="importBtnText">Import Selected Assignments</span>
+        </button>
+        <div id="importResult" style="margin-top:8px;"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TASKS PANEL -->
+  <div class="panel">
+    <div class="panel-header">
+      <span class="panel-title">Tasks & Assignments</span>
+      <span id="taskCount" style="font-size:11px;color:var(--text3)">0 tasks</span>
+    </div>
+    <div class="panel-body">
+      <div id="taskList" class="task-list">
+        <div class="empty-tasks">No tasks yet — connect Canvas above or add manually below.</div>
+      </div>
+      <div style="margin-top:10px">
+        <div class="divider">Add manually</div>
+        <div class="form-group" style="margin-top:8px">
+          <label>Task name</label>
+          <input type="text" id="manualTask" placeholder="e.g. COMP2310 Assignment 2" />
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Due date</label>
+            <input type="date" id="manualDue" />
+          </div>
+          <div class="form-group">
+            <label>Est. hours</label>
+            <input type="number" id="manualHours" placeholder="e.g. 8" min="1" max="100" />
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Difficulty</label>
+            <select id="manualDiff">
+              <option value="low">Low</option>
+              <option value="medium" selected>Medium</option>
+              <option value="high">High</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Course</label>
+            <input type="text" id="manualCourse" placeholder="e.g. COMP2310" />
+          </div>
+        </div>
+        <button class="btn btn-add" onclick="addManualTask()">+ Add Task</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- AVAILABILITY PANEL -->
+  <div class="panel">
+    <div class="panel-header">
+      <span class="panel-title">Weekly Availability</span>
+    </div>
+    <div class="panel-body">
+      <div id="availRows"></div>
+    </div>
+  </div>
+
+  <!-- AI BACKEND PANEL -->
+  <div class="panel">
+    <div class="panel-header">
+      <span class="panel-title">🤖 AI Backend</span>
+      <span id="aiModeTag" style="font-size:10px;padding:2px 8px;border-radius:20px;background:var(--accent-light);color:var(--accent);font-weight:600">Cloud</span>
+    </div>
+    <div class="panel-body">
+      <div class="ai-toggle-wrap">
+        <button class="ai-toggle-btn active-cloud" id="btnCloud" onclick="setAIMode('cloud')">
+          <div class="ai-toggle-icon">☁</div>
+          <span class="ai-toggle-label">Anthropic</span>
+          <span class="ai-toggle-sub">Best quality</span>
+        </button>
+        <button class="ai-toggle-btn" id="btnLocal" onclick="setAIMode('local')">
+          <div class="ai-toggle-icon">🔒</div>
+          <span class="ai-toggle-label">Local (Ollama)</span>
+          <span class="ai-toggle-sub">Full privacy</span>
+        </button>
+      </div>
+
+      <!-- CLOUD CONFIG -->
+      <div id="cloudConfig" class="ai-config-section" style="display:flex;flex-direction:column">
+        <div class="privacy-bar cloud">
+          <div class="privacy-dot cloud"></div>
+          Assignment names &amp; dates sent to Anthropic's servers.
+        </div>
+        <div class="form-group" style="margin:0">
+          <label>Anthropic API Key</label>
+          <div class="token-input-wrap">
+            <input type="password" id="anthropicKey" placeholder="sk-ant-…" autocomplete="off" />
+            <button class="token-eye" onclick="toggleVis('anthropicKey')" title="Show/hide">👁</button>
+          </div>
+        </div>
+        <div style="font-size:11px;color:var(--text3)">Key stored in memory only. Get one at <a href="https://console.anthropic.com" target="_blank" style="color:var(--info)">console.anthropic.com</a></div>
+      </div>
+
+      <!-- LOCAL CONFIG -->
+      <div id="localConfig" class="ai-config-section" style="display:none">
+        <div class="privacy-bar local">
+          <div class="privacy-dot local"></div>
+          100% local — no data leaves your machine.
+        </div>
+        <div class="form-group" style="margin:0">
+          <label>Ollama URL</label>
+          <input type="text" id="ollamaUrl" value="http://localhost:11434" />
+        </div>
+        <div class="form-group" style="margin:0">
+          <label>Model</label>
+          <select id="ollamaModel">
+            <option value="llama3.2">llama3.2 (3B — fast, lightweight)</option>
+            <option value="llama3.1" selected>llama3.1 (8B — recommended)</option>
+            <option value="llama3.1:70b">llama3.1:70b (70B — best local quality)</option>
+            <option value="mistral">mistral (7B)</option>
+            <option value="phi3">phi3 (3.8B — very fast)</option>
+            <option value="custom">Custom model name…</option>
+          </select>
+        </div>
+        <div id="customModelWrap" style="display:none" class="form-group">
+          <label>Custom model name</label>
+          <input type="text" id="customModel" placeholder="e.g. qwen2.5:14b" />
+        </div>
+        <div class="ollama-steps">
+          <strong style="color:var(--text2)">Setup (one time):</strong><br>
+          1. Install Ollama from <a href="https://ollama.com" target="_blank" style="color:var(--info)">ollama.com</a><br>
+          2. Run: <code>OLLAMA_ORIGINS=* ollama serve</code><br>
+          3. Pull a model: <code>ollama pull llama3.1</code><br>
+          4. Hit Generate below ↓
+        </div>
+        <button class="btn btn-outline" style="font-size:11px;padding:6px 10px;width:100%" onclick="testOllama()">⚡ Test connection</button>
+        <div id="ollamaTestResult"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PREFERENCES PANEL -->
+  <div class="panel">
+    <div class="panel-header">
+      <span class="panel-title">Study Preferences</span>
+    </div>
+    <div class="panel-body">
+      <div class="form-group">
+        <label>Study style</label>
+        <select id="studyStyle">
+          <option value="balanced">Balanced — spread evenly</option>
+          <option value="intensive">Intensive — front-load hard tasks</option>
+          <option value="light">Light — short daily sessions</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Max session length</label>
+        <select id="maxSession">
+          <option value="60">60 min (Pomodoro blocks)</option>
+          <option value="90" selected>90 min</option>
+          <option value="120">2 hours</option>
+          <option value="180">3 hours (deep work)</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Include spaced repetition revision?</label>
+        <select id="spacedRep">
+          <option value="yes" selected>Yes — add revision slots</option>
+          <option value="no">No — first-pass only</option>
+        </select>
+      </div>
+      <button class="btn btn-primary" onclick="generatePlan()" id="genBtn">✦ Generate Study Plan</button>
+    </div>
+  </div>
+
+</div>
+
+<!-- OUTPUT AREA -->
+<div class="output" id="output">
+  <div class="hero-state" id="heroState">
+    <div class="hero-icon">✦</div>
+    <div class="hero-title">Your personalised study plan</div>
+    <div class="hero-sub">Connect Canvas to auto-import your assignments, set your weekly availability, then hit Generate.</div>
+  </div>
+</div>
+
+</div><!-- end .main -->
+</div><!-- end .app -->
+
+<!-- CANVAS HELP MODAL -->
+<div class="modal-overlay" id="helpModal" style="display:none" onclick="if(event.target===this)closeModal()">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title">How to get your Canvas token</span>
+      <button class="modal-close" onclick="closeModal()">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="alert alert-warn" style="margin-bottom:14px">
+        ⚠ Treat your token like a password. Never share it. Set an expiry date for extra safety.
+      </div>
+      <div class="steps">
+        <div class="step"><div class="step-num">1</div><div class="step-text">Log in to <strong>canvas.anu.edu.au</strong></div></div>
+        <div class="step"><div class="step-num">2</div><div class="step-text">Click your <strong>Account</strong> icon (top-left) → <strong>Settings</strong></div></div>
+        <div class="step"><div class="step-num">3</div><div class="step-text">Scroll to <strong>Approved Integrations</strong> → click <strong>+ New Access Token</strong></div></div>
+        <div class="step"><div class="step-num">4</div><div class="step-text">Set Purpose: <code>Study Planner</code> and set an <strong>expiry date</strong> (e.g. end of semester)</div></div>
+        <div class="step"><div class="step-num">5</div><div class="step-text">Click <strong>Generate Token</strong> and copy the result</div></div>
+        <div class="step"><div class="step-num">6</div><div class="step-text">Paste it into the token field in this app. <strong>It only lives in memory — never saved to disk.</strong></div></div>
+      </div>
+      <div class="alert alert-info" style="margin-top:14px; font-size:12px">
+        ℹ This app only reads <strong>course names</strong> and <strong>assignment names + due dates</strong>. It never reads your grades, submissions, files, or messages.
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal()">Close</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── STATE ──────────────────────────────────────────────────────────────────
+const state = {
+  canvasToken: null,
+  canvasDomain: 'canvas.anu.edu.au',
+  courses: [],
+  selectedCourses: new Set(),
+  tasks: [],
+  availability: { Mon:4, Tue:4, Wed:4, Thu:4, Fri:3, Sat:2, Sun:1 },
+  aiMode: 'cloud',
+};
+
+// ── AVAILABILITY SLIDERS ───────────────────────────────────────────────────
+function buildAvailability() {
+  const wrap = document.getElementById('availRows');
+  Object.entries(state.availability).forEach(([day, hrs]) => {
+    const row = document.createElement('div');
+    row.className = 'day-row';
+    row.innerHTML = `
+      <span class="day-label">${day}</span>
+      <input type="range" min="0" max="10" step="0.5" value="${hrs}" 
+             oninput="state.availability['${day}']=+this.value; document.getElementById('hrs_${day}').textContent=this.value+'h'" />
+      <span class="hours-val" id="hrs_${day}">${hrs}h</span>
+    `;
+    wrap.appendChild(row);
+  });
+}
+buildAvailability();
+
+// ── TOKEN VISIBILITY TOGGLE ────────────────────────────────────────────────
+function toggleTokenVis() {
+  const inp = document.getElementById('canvasToken');
+  inp.type = inp.type === 'password' ? 'text' : 'password';
+}
+function toggleVis(id) {
+  const inp = document.getElementById(id);
+  inp.type = inp.type === 'password' ? 'text' : 'password';
+}
+
+// ── CANVAS API HELPERS ─────────────────────────────────────────────────────
+async function canvasFetch(path, token, domain) {
+  const base = `https://${domain}`;
+  const url = `${base}/api/v1${path}`;
+  const res = await fetch(url, {
+    headers: { 'Authorization': `Bearer ${token}` }
+  });
+  if (!res.ok) throw new Error(`Canvas API error ${res.status}: ${res.statusText}`);
+  return res.json();
+}
+
+// Paginate through Canvas API (handles Link: <next> headers)
+async function canvasFetchAll(path, token, domain) {
+  const base = `https://${domain}`;
+  let url = `${base}/api/v1${path}${path.includes('?') ? '&' : '?'}per_page=50`;
+  let results = [];
+  while (url) {
+    const res = await fetch(url, { headers: { 'Authorization': `Bearer ${token}` } });
+    if (!res.ok) throw new Error(`Canvas API error ${res.status}`);
+    const data = await res.json();
+    results = results.concat(data);
+    const link = res.headers.get('Link') || '';
+    const next = link.match(/<([^>]+)>;\s*rel="next"/);
+    url = next ? next[1] : null;
+  }
+  return results;
+}
+
+// ── CONNECT & FETCH COURSES ────────────────────────────────────────────────
+async function connectCanvas() {
+  const token = document.getElementById('canvasToken').value.trim();
+  const domain = document.getElementById('canvasDomain').value.trim();
+  if (!token) { showAlert('Please paste your Canvas access token.', 'warn'); return; }
+
+  state.canvasToken = token;
+  state.canvasDomain = domain;
+
+  const btn = document.getElementById('connectBtn');
+  const btnText = document.getElementById('connectBtnText');
+  btn.disabled = true;
+  btnText.innerHTML = '<span class="import-spinner"></span> Connecting…';
+
+  try {
+    // Fetch active courses only — filter out concluded ones
+    const courses = await canvasFetchAll('/courses?enrollment_state=active&state[]=available', token, domain);
+    state.courses = courses.filter(c => c.name && !c.access_restricted_by_date);
+
+    if (state.courses.length === 0) {
+      showAlert('No active courses found. Make sure your token is correct and you have active enrollments.', 'warn');
+      btn.disabled = false;
+      btnText.textContent = 'Connect & Fetch Courses';
+      return;
+    }
+
+    renderCourses();
+    document.getElementById('courseSection').style.display = 'block';
+    document.getElementById('canvasDot').classList.add('connected');
+    document.getElementById('canvasStatusText').textContent = `Canvas connected (${state.courses.length} courses)`;
+    showAlert(`✓ Connected! Found ${state.courses.length} active courses. Select which ones to import.`, 'success');
+  } catch (err) {
+    let msg = err.message;
+    if (msg.includes('401')) msg = 'Invalid token — please check you copied it correctly.';
+    else if (msg.includes('Failed to fetch') || msg.includes('NetworkError')) msg = 'Could not reach Canvas. If running locally, host this file on HTTPS (e.g. GitHub Pages). Canvas blocks cross-origin requests from file://.';
+    showAlert('Connection failed: ' + msg, 'danger');
+  } finally {
+    btn.disabled = false;
+    btnText.textContent = 'Reconnect';
+  }
+}
+
+// ── RENDER COURSE LIST ─────────────────────────────────────────────────────
+function renderCourses() {
+  const list = document.getElementById('courseList');
+  list.innerHTML = '';
+  state.courses.forEach(course => {
+    const item = document.createElement('div');
+    item.className = 'course-item';
+    item.dataset.id = course.id;
+    item.innerHTML = `
+      <div class="course-check">${state.selectedCourses.has(course.id) ? '✓' : ''}</div>
+      <div style="flex:1;min-width:0">
+        <div class="course-name">${escHtml(course.name)}</div>
+        <div class="course-code">${escHtml(course.course_code || '')}</div>
+      </div>
+    `;
+    item.onclick = () => toggleCourse(course.id, item);
+    if (state.selectedCourses.has(course.id)) item.classList.add('selected');
+    list.appendChild(item);
+  });
+  updateImportBtn();
+}
+
+function toggleCourse(id, el) {
+  if (state.selectedCourses.has(id)) {
+    state.selectedCourses.delete(id);
+    el.classList.remove('selected');
+    el.querySelector('.course-check').textContent = '';
+  } else {
+    state.selectedCourses.add(id);
+    el.classList.add('selected');
+    el.querySelector('.course-check').textContent = '✓';
+  }
+  updateImportBtn();
+}
+
+function updateImportBtn() {
+  const btn = document.getElementById('importBtn');
+  btn.disabled = state.selectedCourses.size === 0;
+  document.getElementById('importBtnText').textContent =
+    state.selectedCourses.size === 0
+      ? 'Select courses above'
+      : `Import from ${state.selectedCourses.size} course${state.selectedCourses.size > 1 ? 's' : ''}`;
+}
+
+// ── IMPORT ASSIGNMENTS ─────────────────────────────────────────────────────
+async function importAssignments() {
+  if (!state.canvasToken) return;
+  const btn = document.getElementById('importBtn');
+  const btnText = document.getElementById('importBtnText');
+  btn.disabled = true;
+  btnText.innerHTML = '<span class="import-spinner"></span> Fetching assignments…';
+
+  const result = document.getElementById('importResult');
+  result.innerHTML = '';
+  let imported = 0, skipped = 0;
+
+  try {
+    for (const courseId of state.selectedCourses) {
+      const course = state.courses.find(c => c.id === courseId);
+      const assignments = await canvasFetchAll(
+        `/courses/${courseId}/assignments?bucket=upcoming&order_by=due_at`, 
+        state.canvasToken, state.canvasDomain
+      );
+
+      for (const a of assignments) {
+        // Skip if already imported (by Canvas ID)
+        if (state.tasks.find(t => t.canvasId === a.id)) { skipped++; continue; }
+        // Skip assignments with no due date or already submitted
+        if (!a.due_at) { skipped++; continue; }
+        if (a.has_submitted_submissions) { skipped++; continue; }
+
+        // Estimate hours based on points and type — AI will refine this
+        const pts = a.points_possible || 10;
+        const estHours = pts <= 10 ? 2 : pts <= 30 ? 5 : pts <= 60 ? 10 : 20;
+        const diff = pts <= 10 ? 'low' : pts <= 30 ? 'medium' : 'high';
+
+        state.tasks.push({
+          id: Date.now() + Math.random(),
+          canvasId: a.id,
+          name: a.name,
+          course: course.course_code || course.name,
+          dueDate: a.due_at.split('T')[0],
+          estimatedHours: estHours,
+          difficulty: diff,
+          fromCanvas: true,
+          submissionType: (a.submission_types || []).join(', '),
+          points: pts,
+        });
+        imported++;
+      }
+    }
+
+    renderTaskList();
+    result.innerHTML = `<div class="alert alert-success" style="margin-top:4px">✓ Imported ${imported} upcoming assignment${imported !== 1 ? 's' : ''}${skipped > 0 ? ` (${skipped} skipped — already submitted or no due date)` : ''}.</div>`;
+  } catch (err) {
+    result.innerHTML = `<div class="alert alert-danger" style="margin-top:4px">Failed: ${escHtml(err.message)}</div>`;
+  } finally {
+    btn.disabled = false;
+    updateImportBtn();
+  }
+}
+
+// ── TASK MANAGEMENT ────────────────────────────────────────────────────────
+function addManualTask() {
+  const name = document.getElementById('manualTask').value.trim();
+  const due = document.getElementById('manualDue').value;
+  const hours = parseFloat(document.getElementById('manualHours').value) || 5;
+  const diff = document.getElementById('manualDiff').value;
+  const course = document.getElementById('manualCourse').value.trim();
+  if (!name) { alert('Please enter a task name.'); return; }
+
+  state.tasks.push({ id: Date.now(), name, course, dueDate: due, estimatedHours: hours, difficulty: diff, fromCanvas: false });
+  document.getElementById('manualTask').value = '';
+  document.getElementById('manualDue').value = '';
+  document.getElementById('manualHours').value = '';
+  document.getElementById('manualCourse').value = '';
+  renderTaskList();
+}
+
+function deleteTask(id) {
+  state.tasks = state.tasks.filter(t => t.id !== id);
+  renderTaskList();
+}
+
+function renderTaskList() {
+  const list = document.getElementById('taskList');
+  const count = document.getElementById('taskCount');
+  count.textContent = `${state.tasks.length} task${state.tasks.length !== 1 ? 's' : ''}`;
+
+  if (state.tasks.length === 0) {
+    list.innerHTML = '<div class="empty-tasks">No tasks yet — connect Canvas above or add manually below.</div>';
+    return;
+  }
+
+  const sorted = [...state.tasks].sort((a, b) => {
+    if (!a.dueDate) return 1; if (!b.dueDate) return -1;
+    return a.dueDate.localeCompare(b.dueDate);
+  });
+
+  list.innerHTML = sorted.map(t => `
+    <div class="task-card ${t.fromCanvas ? 'from-canvas' : ''}">
+      <div>
+        <div class="task-name">${escHtml(t.name)}</div>
+        <div class="task-meta">
+          ${t.course ? `<span>${escHtml(t.course)}</span>` : ''}
+          ${t.dueDate ? `<span>Due ${formatDate(t.dueDate)}</span>` : ''}
+          <span>~${t.estimatedHours}h</span>
+          ${t.fromCanvas ? '<span class="canvas-tag">Canvas</span>' : ''}
+        </div>
+      </div>
+      <span class="task-badge badge-${t.difficulty}">${t.difficulty}</span>
+      <button class="task-del" onclick="deleteTask(${t.id})" title="Remove">×</button>
+    </div>
+  `).join('');
+}
+
+// ── AI BACKEND MODE ────────────────────────────────────────────────────────
+function setAIMode(mode) {
+  state.aiMode = mode;
+  document.getElementById('cloudConfig').style.display = mode === 'cloud' ? 'flex' : 'none';
+  document.getElementById('localConfig').style.display = mode === 'local' ? 'flex' : 'none';
+  document.getElementById('btnCloud').className = 'ai-toggle-btn' + (mode === 'cloud' ? ' active-cloud' : '');
+  document.getElementById('btnLocal').className = 'ai-toggle-btn' + (mode === 'local' ? ' active-local' : '');
+  const tag = document.getElementById('aiModeTag');
+  if (mode === 'cloud') {
+    tag.textContent = 'Cloud'; tag.style.background = 'var(--accent-light)'; tag.style.color = 'var(--accent)';
+  } else {
+    tag.textContent = 'Local'; tag.style.background = 'var(--ollama-purple-light)'; tag.style.color = 'var(--ollama-purple)';
+  }
+}
+
+document.getElementById('ollamaModel').addEventListener('change', function() {
+  document.getElementById('customModelWrap').style.display = this.value === 'custom' ? 'block' : 'none';
+});
+
+function getOllamaModel() {
+  const sel = document.getElementById('ollamaModel').value;
+  return sel === 'custom' ? document.getElementById('customModel').value.trim() : sel;
+}
+
+async function testOllama() {
+  const url = document.getElementById('ollamaUrl').value.trim();
+  const model = getOllamaModel();
+  const result = document.getElementById('ollamaTestResult');
+  result.innerHTML = '<div class="alert alert-info" style="font-size:11px;padding:6px 10px">Testing…</div>';
+  try {
+    const res = await fetch(`${url}/api/generate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model, prompt: 'Reply with just the word: ready', stream: false })
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    result.innerHTML = `<div class="alert alert-success" style="font-size:11px;padding:6px 10px">✓ Connected to ${model}. Ready!</div>`;
+  } catch(e) {
+    let msg = e.message;
+    if (msg.includes('Failed to fetch')) msg = 'Could not reach Ollama. Make sure it\'s running with OLLAMA_ORIGINS=* ollama serve';
+    result.innerHTML = `<div class="alert alert-danger" style="font-size:11px;padding:6px 10px">✗ ${escHtml(msg)}</div>`;
+  }
+}
+
+// ── GENERATE PLAN ──────────────────────────────────────────────────────────
+async function generatePlan() {
+  if (state.tasks.length === 0) { showAlert('Add at least one task first.', 'warn'); return; }
+
+  const out = document.getElementById('output');
+  const modeLabel = state.aiMode === 'local' ? 'local model' : 'Claude';
+  out.innerHTML = `<div class="loading-state"><div class="spinner"></div><div class="loading-label">Asking ${modeLabel}<span class="loading-dots"></span></div></div>`;
+
+  const style = document.getElementById('studyStyle').value;
+  const maxSess = document.getElementById('maxSession').value;
+  const spaced = document.getElementById('spacedRep').value;
+
+  const taskSummary = state.tasks.map(t =>
+    `- ${t.name} (${t.course || 'General'}) | Due: ${t.dueDate || 'TBD'} | Est: ${t.estimatedHours}h | Difficulty: ${t.difficulty}`
+  ).join('\n');
+
+  const availSummary = Object.entries(state.availability)
+    .map(([d, h]) => `${d}: ${h}h available`).join(', ');
+
+  const prompt = `You are a university study planner AI. Create a detailed weekly study schedule for the following tasks.
+
+TASKS:
+${taskSummary}
+
+WEEKLY AVAILABILITY:
+${availSummary}
+
+PREFERENCES:
+- Study style: ${style}
+- Max session length: ${maxSess} minutes
+- Spaced repetition: ${spaced === 'yes' ? 'Yes, include revision sessions 2-3 days after initial study' : 'No'}
+
+RULES:
+1. Schedule sessions within the available hours per day
+2. Prioritise by due date — earlier deadlines first
+3. Break large tasks into multiple sessions (max ${maxSess} min each)
+4. Add 15% buffer time before each due date for review
+5. ${spaced === 'yes' ? 'Schedule a short revision session 2-3 days after the first study session for each task' : 'No revision sessions needed'}
+6. For high-difficulty tasks, schedule them earlier in the day/week
+7. Include brief breaks (15 min) after every 90+ min session
+
+Respond ONLY with a valid JSON object in this exact structure, no markdown fences:
+{
+  "summary": "2-sentence overview of the plan",
+  "totalHours": <number>,
+  "weeks": [
+    {
+      "weekLabel": "Week of [date]",
+      "days": [
+        {
+          "day": "Monday",
+          "date": "2025-05-05",
+          "sessions": [
+            {
+              "time": "09:00",
+              "task": "Task name",
+              "course": "Course code",
+              "duration": 90,
+              "type": "study|revision|review",
+              "notes": "optional brief note"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}`;
+
+  try {
+    let raw;
+    if (state.aiMode === 'local') {
+      raw = await generateWithOllama(prompt);
+    } else {
+      raw = await generateWithAnthropic(prompt);
+    }
+    const clean = raw.replace(/```json|```/g, '').trim();
+    const plan = JSON.parse(clean);
+    renderPlan(plan);
+  } catch (err) {
+    let hint = '';
+    if (state.aiMode === 'local') hint = ' Make sure Ollama is running with <code>OLLAMA_ORIGINS=* ollama serve</code>';
+    out.innerHTML = `<div class="alert alert-danger">Failed to generate plan: ${escHtml(err.message)}.${hint} Please try again.</div>`;
+  }
+}
+
+async function generateWithAnthropic(prompt) {
+  const key = document.getElementById('anthropicKey').value.trim();
+  if (!key) throw new Error('Please enter your Anthropic API key in the AI Backend panel.');
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01' },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 4000,
+      messages: [{ role: 'user', content: prompt }]
+    })
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error?.message || `API error ${res.status}`);
+  }
+  const data = await res.json();
+  return data.content.map(b => b.text || '').join('');
+}
+
+async function generateWithOllama(prompt) {
+  const url = document.getElementById('ollamaUrl').value.trim();
+  const model = getOllamaModel();
+  if (!model) throw new Error('Please select or enter an Ollama model.');
+  const res = await fetch(`${url}/api/generate`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ model, prompt, stream: false, options: { temperature: 0.3, num_predict: 4000 } })
+  });
+  if (!res.ok) throw new Error(`Ollama error ${res.status}`);
+  const data = await res.json();
+  return data.response || '';
+}
+
+// ── RENDER PLAN ────────────────────────────────────────────────────────────
+function renderPlan(plan) {
+  const out = document.getElementById('output');
+  const totalTasks = state.tasks.length;
+  const html = `
+    <div class="plan-header">
+      <div>
+        <div class="plan-title">Your Study Plan</div>
+        <div class="plan-meta">${escHtml(plan.summary || '')}</div>
+        <div class="plan-meta" style="margin-top:4px">~${plan.totalHours || '?'}h total · ${totalTasks} assignment${totalTasks !== 1 ? 's' : ''}</div>
+      </div>
+      <div class="plan-actions">
+        <button class="btn-ghost" style="background:rgba(255,255,255,0.15);border-color:rgba(255,255,255,0.3)" onclick="exportICS()">⬇ Export .ics</button>
+        <button class="btn-ghost" style="background:rgba(255,255,255,0.15);border-color:rgba(255,255,255,0.3)" onclick="generatePlan()">↺ Regenerate</button>
+      </div>
+    </div>
+    <div class="plan-week">
+      ${(plan.weeks || []).map(week => `
+        <div style="font-size:12px;font-weight:600;color:var(--text3);letter-spacing:0.05em;text-transform:uppercase;padding-bottom:4px">${escHtml(week.weekLabel || '')}</div>
+        ${(week.days || []).filter(d => d.sessions && d.sessions.length > 0).map(day => {
+          const totalMins = day.sessions.reduce((s, ses) => s + (ses.duration || 0), 0);
+          return `
+          <div class="day-block">
+            <div class="day-block-header">
+              <span class="day-name">${escHtml(day.day)} <span style="font-weight:400;color:var(--text3);font-size:12px">${escHtml(day.date || '')}</span></span>
+              <span class="day-hours">${Math.round(totalMins / 60 * 10) / 10}h study</span>
+            </div>
+            <div class="session-list">
+              ${day.sessions.map(s => `
+                <div class="session-item" style="${s.type === 'revision' ? 'border-color:#B8CCE0;background:var(--info-light)' : s.type === 'review' ? 'border-color:#B8D4A0;background:var(--accent-light)' : ''}">
+                  <span class="session-time">${escHtml(s.time || '')} · ${s.type || 'study'}</span>
+                  <div class="session-info">
+                    <span class="session-task">${escHtml(s.task || '')}</span>
+                    ${s.course ? `<span class="session-course">${escHtml(s.course)}</span>` : ''}
+                    ${s.notes ? `<span class="session-course" style="color:var(--text2)">${escHtml(s.notes)}</span>` : ''}
+                  </div>
+                  <span class="session-dur">${s.duration || 0} min</span>
+                </div>
+              `).join('')}
+            </div>
+          </div>`;
+        }).join('')}
+      `).join('')}
+    </div>
+  `;
+  out.innerHTML = html;
+  // Store plan data for ICS export
+  window._lastPlan = plan;
+}
+
+// ── ICS EXPORT ─────────────────────────────────────────────────────────────
+function exportICS() {
+  const plan = window._lastPlan;
+  if (!plan) return;
+  const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//ANU Study Planner//EN', 'CALSCALE:GREGORIAN'];
+  (plan.weeks || []).forEach(week => {
+    (week.days || []).forEach(day => {
+      (day.sessions || []).forEach(ses => {
+        if (!day.date || !ses.time) return;
+        const [h, m] = ses.time.split(':').map(Number);
+        const startDt = day.date.replace(/-/g, '') + 'T' + String(h).padStart(2,'0') + String(m).padStart(2,'0') + '00';
+        const endMins = h * 60 + m + (ses.duration || 60);
+        const eh = String(Math.floor(endMins / 60)).padStart(2,'0');
+        const em = String(endMins % 60).padStart(2,'0');
+        const endDt = day.date.replace(/-/g, '') + 'T' + eh + em + '00';
+        lines.push('BEGIN:VEVENT');
+        lines.push('DTSTART:' + startDt);
+        lines.push('DTEND:' + endDt);
+        lines.push('SUMMARY:' + (ses.task || 'Study session').replace(/,/g, '\\,'));
+        lines.push('DESCRIPTION:' + (ses.course || '') + (ses.notes ? ' - ' + ses.notes : ''));
+        lines.push('END:VEVENT');
+      });
+    });
+  });
+  lines.push('END:VCALENDAR');
+  const blob = new Blob([lines.join('\r\n')], { type: 'text/calendar' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'study-plan.ics';
+  a.click();
+}
+
+// ── UTILITIES ──────────────────────────────────────────────────────────────
+function escHtml(str) {
+  return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function formatDate(iso) {
+  if (!iso) return '';
+  const d = new Date(iso + 'T00:00:00');
+  return d.toLocaleDateString('en-AU', { day: 'numeric', month: 'short' });
+}
+
+function showAlert(msg, type = 'info') {
+  const out = document.getElementById('output');
+  const div = document.createElement('div');
+  div.className = `alert alert-${type}`;
+  div.textContent = msg;
+  if (out.querySelector('.hero-state')) out.innerHTML = '';
+  out.prepend(div);
+  setTimeout(() => div.remove(), 6000);
+}
+
+function openCanvasHelp() { document.getElementById('helpModal').style.display = 'flex'; }
+function closeModal() { document.getElementById('helpModal').style.display = 'none'; }
+function clearAll() {
+  if (!confirm('Reset everything?')) return;
+  state.tasks = [];
+  state.courses = [];
+  state.selectedCourses = new Set();
+  state.canvasToken = null;
+  document.getElementById('canvasToken').value = '';
+  document.getElementById('courseSection').style.display = 'none';
+  document.getElementById('canvasDot').classList.remove('connected');
+  document.getElementById('canvasStatusText').textContent = 'Canvas not connected';
+  renderTaskList();
+  document.getElementById('output').innerHTML = `<div class="hero-state" id="heroState"><div class="hero-icon">✦</div><div class="hero-title">Your personalised study plan</div><div class="hero-sub">Connect Canvas to auto-import your assignments, set your weekly availability, then hit Generate.</div></div>`;
+}
+</script>
+</body>
+</html>
